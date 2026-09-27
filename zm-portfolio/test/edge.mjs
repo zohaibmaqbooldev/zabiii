@@ -1,0 +1,24 @@
+import { chromium } from 'playwright';
+import { execSync } from 'node:child_process';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const errs = [];
+const page = async (w = 1366) => { const p = await b.newPage({ viewport: { width: w, height: 900 } }); p.on('pageerror', (e) => errs.push(e.message)); return p; };
+let p = await page();
+await p.goto('http://localhost:5173/', { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
+const t = await p.locator('main').innerText();
+console.log('EMPTY DB:', ['No projects added yet.', 'No skills added yet.', 'No certificates added yet.', 'No education added yet.'].map((s) => `${s} ${t.includes(s) ? 'OK' : 'MISSING'}`).join(' | '), '| hero name fallback:', t.includes('Zohaib'));
+await p.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { scrollTo(0, y); await new Promise(r => setTimeout(r, 50)); } });
+await p.screenshot({ path: '/tmp/empty.png', fullPage: true });
+await p.close();
+// Supabase unreachable
+execSync('kill $(cat /tmp/zm-gw.pid)');
+p = await page(390);
+await p.goto('http://localhost:5173/', { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
+const err = await p.locator('.load-error').count();
+console.log('OFFLINE: error banner', err ? 'OK' : 'MISSING', '| raw error text leaked:', /fetch|TypeError|ECONN/i.test(await p.locator('body').innerText()));
+await p.screenshot({ path: '/tmp/offline.png' });
+await p.goto('http://localhost:5173/admin/login', { waitUntil: 'networkidle' });
+await p.fill('#login-email', 'zohaibmaqbool313@gmail.com'); await p.fill('#login-pass', 'x'); await p.click('.login__submit'); await p.waitForTimeout(600);
+console.log('OFFLINE login:', await p.locator('.login__alert').innerText());
+console.log('page errors:', errs.length ? errs : 'none');
+await b.close();
