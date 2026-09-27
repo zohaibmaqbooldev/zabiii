@@ -3,6 +3,7 @@ import { fetchPublicData, readCache, writeCache } from './api';
 import { isConfigured } from './supabase';
 import type { PortfolioData, Profile } from './types';
 import { safeUrl } from './utils';
+import { DEFAULT_WHATSAPP } from './config';
 
 type Status = 'loading' | 'ready' | 'error';
 interface Ctx {
@@ -97,7 +98,7 @@ export function useProfile() {
       logo: p.logo_url || null,
       email: p.email?.trim() || null,
       phone: p.phone?.trim() || null,
-      whatsapp: p.whatsapp?.trim() || null,
+      whatsapp: p.whatsapp?.trim() || DEFAULT_WHATSAPP,
       github: safeUrl(p.github) || social('github'),
       linkedin: safeUrl(p.linkedin) || social('linkedin'),
       website: safeUrl(p.website),
