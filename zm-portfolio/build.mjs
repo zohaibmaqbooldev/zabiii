@@ -38,12 +38,12 @@ function copyDir(from, to) {
 
 async function build() {
   const env = loadEnv();
-  const url = (env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-  const key = env.VITE_SUPABASE_ANON_KEY || '';
+  const url = (env.VITE_SUPABASE_URL || 'https://fectstagqsocxqlecqbb.supabase.co').replace(/\/+$/, '');
+  const key = env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_aquZZ3NUce9CkFn1rgCRhA_fHrG44pX';
   if (/service_role/.test(Buffer.from((key.split('.')[1] || ''), 'base64').toString())) {
     throw new Error('VITE_SUPABASE_ANON_KEY is a service_role key. Never ship that — use the anon/publishable key.');
   }
-  const siteUrl = (env.SITE_URL || '').replace(/\/+$/, '');
+  const siteUrl = (env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.URL || '')).replace(/\/+$/, '');
 
   fs.rmSync(dist, { recursive: true, force: true });
   const result = await esbuild.build({
