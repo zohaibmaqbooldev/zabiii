@@ -10,6 +10,7 @@ const STORE_KEY = 'zabiii-chat-v1'; // this browser tab only (sessionStorage)
 const MAX_CHARS = 800;
 const TIMEOUT_MS = 50_000;
 const SUGGESTIONS = ['What services do you offer?', 'How much does an app cost?', 'Show me your projects', 'Are you available for work?'];
+const FALLBACK = 'Zohaib will reply soon. Meanwhile you can reach him through the contact form or the WhatsApp button.';
 const WELCOME = "Hi! I'm Zabiii AI, Zohaib's portfolio assistant. Ask me about his skills, projects, services or pricing — in English or Urdu.";
 
 function loadHistory(): Msg[] {
@@ -87,12 +88,16 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
         body: JSON.stringify({ messages: history.slice(-12) }),
         signal: ctrl.current.signal,
       });
-      const json = (await res.json().catch(() => null)) as { ok?: boolean; reply?: string; error?: string } | null;
-      if (!res.ok || !json?.ok || !json.reply) throw new Error(json?.error || 'The assistant is unavailable right now. Please use the contact form or WhatsApp.');
-      setMessages([...history, { role: 'model', text: json.reply }]);
-    } catch (e) {
-      const aborted = (e as Error).name === 'AbortError';
-      setError(aborted ? 'The assistant took too long to answer. Please try again.' : navigator.onLine === false ? 'You seem to be offline.' : (e as Error).message);
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; reply?: string; error?: string; code?: string } | null;
+      if (res.ok && json?.ok && json.reply) {
+        setMessages([...history, { role: 'model', text: json.reply }]);
+      } else if (json?.code === 'rate_limited' && json.error) {
+        setError(json.error); // visitor is typing too fast — tell them to wait
+      } else {
+        setError(FALLBACK); // AI / key / Gemini problem: never show technical errors to visitors
+      }
+    } catch {
+      setError(navigator.onLine === false ? 'You seem to be offline. ' + FALLBACK : FALLBACK);
     } finally {
       clearTimeout(timer);
       setBusy(false);
