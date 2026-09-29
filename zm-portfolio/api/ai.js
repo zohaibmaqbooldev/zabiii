@@ -18,7 +18,9 @@ const MAX_CONTEXT_VALUE = 600;
 const MAX_CHAT_MESSAGES = 12;
 const GEMINI_ATTEMPT_TIMEOUT_MS = 25_000; // one model
 const GEMINI_TOTAL_BUDGET_MS = 45_000; // all attempts (Vercel limit is 60 s)
-const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+// Tried in order; the lite model runs on separate capacity, so it usually answers when the others are overloaded (503).
+const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+const MAX_ATTEMPTS = 3;
 
 // Result length limits match the admin form fields.
 const TASKS = {
@@ -249,8 +251,9 @@ async function callGemini(apiKey, contents, limit) {
   const deadline = Date.now() + GEMINI_TOTAL_BUDGET_MS;
   let lastError = null;
   // Up to two models: if the first is missing, overloaded, failing or too slow, try the next once.
-  for (let i = 0; i < models.length && i < 2; i++) {
+  for (let i = 0; i < models.length && i < MAX_ATTEMPTS; i++) {
     const model = models[i];
+    if (i > 0) await new Promise((r) => setTimeout(r, 400 * i)); // brief pause before the next model
     const remaining = deadline - Date.now();
     if (remaining < 5_000) break;
     const generationConfig = { maxOutputTokens: Math.min(4096, Math.ceil(limit / 2) + 1024) };
