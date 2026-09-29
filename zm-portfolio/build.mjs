@@ -110,8 +110,8 @@ function startServer() {
   for (const [k, v] of Object.entries(loadEnv())) if (process.env[k] === undefined) process.env[k] = v;
   http.createServer(async (req, res) => {
     const clean = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    if (clean === '/api/ai') {
-      const { default: handler } = await import('./api/ai.js');
+    if (clean === '/api/ai' || clean === '/api/chat') {
+      const { default: handler } = await import(`./api${clean.slice(4)}.js`);
       return handler(req, res);
     }
     let file = path.join(dist, clean);
