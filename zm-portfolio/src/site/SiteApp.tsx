@@ -3,6 +3,7 @@ import { Link } from '../lib/router';
 import { usePortfolio } from '../lib/portfolio';
 import { About } from './About';
 import { Certificates } from './Certificates';
+import { ChatLauncher } from './ChatLauncher';
 import { Contact, WhatsAppFab } from './Contact';
 import { Education } from './Education';
 import { Experience } from './Experience';
@@ -73,6 +74,7 @@ export function SiteApp({ route }: { route: { name: 'home' } | { name: 'project'
       {route.name === 'notfound' && <NotFound />}
       <Footer />
       <WhatsAppFab />
+      <ChatLauncher />
     </>
   );
 }
