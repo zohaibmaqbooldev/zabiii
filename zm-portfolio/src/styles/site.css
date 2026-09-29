@@ -1948,11 +1948,14 @@ a.contact-row:hover .contact-row__arrow {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));
   bottom: calc(max(18px, env(safe-area-inset-bottom)) + 132px);
-  z-index: 42;
+  /* above the fixed site header (z-index 50) */
+  z-index: 55;
   display: flex;
   flex-direction: column;
   width: min(380px, calc(100vw - 24px));
-  height: min(560px, calc(100dvh - 170px));
+  /* leaves room for the header bar at the top */
+  height: min(560px, calc(100dvh - 240px));
+  min-height: 260px;
   border: 1px solid var(--line-2);
   border-radius: var(--r-lg);
   background: var(--bg-1);
@@ -1982,7 +1985,7 @@ a.contact-row:hover .contact-row__arrow {
     left: 12px;
     width: auto;
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 136px);
-    height: min(70dvh, calc(100dvh - 170px));
+    height: min(70dvh, calc(100dvh - 236px));
   }
 }
 @media (prefers-reduced-motion: reduce) {
