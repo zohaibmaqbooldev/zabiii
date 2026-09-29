@@ -26,7 +26,7 @@ export interface AiRequest {
 }
 
 const ENDPOINT = '/api/ai';
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = 55_000; // server gives Gemini up to 45 s
 
 async function call(method: 'GET' | 'POST', body?: unknown, signal?: AbortSignal) {
   const session = await auth.getSession();
