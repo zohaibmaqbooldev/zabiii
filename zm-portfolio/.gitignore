@@ -1,0 +1,12 @@
+node_modules
+dist
+# local secrets — never commit
+.env
+.env.local
+.env.*.local
+.env.test
+.vercel
+test/.storage
+test/fixtures/huge.jpg
+typecheck-shims
+tsconfig.local.json
