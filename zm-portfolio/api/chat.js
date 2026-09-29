@@ -16,7 +16,9 @@ const MAX_MESSAGE_CHARS = 800;
 const ATTEMPT_TIMEOUT_MS = 20_000;
 const TOTAL_BUDGET_MS = 40_000;
 const DATA_TTL_MS = 5 * 60_000;
-const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+// Tried in order; the lite model runs on separate capacity, so it usually answers when the others are overloaded (503).
+const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+const MAX_ATTEMPTS = 3;
 
 const PERSONA = `You are "Zabiii AI", Zohaib Maqbool's personal portfolio assistant.
 Zohaib is a Flutter & Full-Stack Developer from Pakistan.
@@ -218,8 +220,9 @@ async function callGemini(apiKey, systemText, messages) {
   const contents = messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
   let lastError = null;
   const models = modelList();
-  for (let i = 0; i < models.length && i < 2; i++) {
+  for (let i = 0; i < models.length && i < MAX_ATTEMPTS; i++) {
     const model = models[i];
+    if (i > 0) await new Promise((r) => setTimeout(r, 400 * i)); // brief pause before the next model
     const remaining = deadline - Date.now();
     if (remaining < 4_000) break;
     const generationConfig = { maxOutputTokens: 1024 };
