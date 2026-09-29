@@ -16,7 +16,8 @@ const MAX_BODY_BYTES = 16_000;
 const MAX_TEXT = 4_000;
 const MAX_CONTEXT_VALUE = 600;
 const MAX_CHAT_MESSAGES = 12;
-const GEMINI_TIMEOUT_MS = 30_000;
+const GEMINI_ATTEMPT_TIMEOUT_MS = 25_000; // one model
+const GEMINI_TOTAL_BUDGET_MS = 45_000; // all attempts (Vercel limit is 60 s)
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-2.5-flash'];
 
 // Result length limits match the admin form fields.
@@ -244,9 +245,13 @@ function modelList() {
 async function callGemini(apiKey, contents, limit) {
   const base = (env('GEMINI_API_BASE') || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
   const models = modelList();
+  const deadline = Date.now() + GEMINI_TOTAL_BUDGET_MS;
   let lastError = null;
+  // Up to two models: if the first is missing, overloaded, failing or too slow, try the next once.
   for (let i = 0; i < models.length && i < 2; i++) {
     const model = models[i];
+    const remaining = deadline - Date.now();
+    if (remaining < 5_000) break;
     const generationConfig = { maxOutputTokens: Math.min(4096, Math.ceil(limit / 2) + 1024) };
     if (/^gemini-3/.test(model)) generationConfig.thinkingConfig = { thinkingLevel: 'low' };
     let r;
@@ -258,15 +263,22 @@ async function callGemini(apiKey, contents, limit) {
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents, generationConfig }),
         },
-        GEMINI_TIMEOUT_MS,
+        Math.min(GEMINI_ATTEMPT_TIMEOUT_MS, remaining),
       );
     } catch (e) {
       const timedOut = e && e.name === 'AbortError';
-      throw new HttpError(timedOut ? 504 : 502, timedOut ? 'ai_timeout' : 'ai_unavailable', timedOut ? 'The AI took too long to answer. Try again.' : 'Could not reach Gemini. Try again in a moment.');
+      console.error(`[api/ai] Gemini ${timedOut ? 'timeout' : 'network error'} (${model})`);
+      lastError = new HttpError(timedOut ? 504 : 502, timedOut ? 'ai_timeout' : 'ai_unavailable', timedOut ? 'The AI took too long to answer. Try again.' : 'Could not reach Gemini. Try again in a moment.');
+      continue; // try the next model once
     }
     if (r.status === 404) {
       lastError = new HttpError(502, 'ai_model_unavailable', 'The configured Gemini model is not available for this API key.');
       continue; // try the next model once
+    }
+    if (r.status >= 500) {
+      console.error(`[api/ai] Gemini error ${r.status} (${model}), trying next model`);
+      lastError = new HttpError(502, 'ai_unavailable', 'Gemini is busy right now. Try again in a moment.');
+      continue; // overloaded / server error: try the next model once
     }
     const json = await r.json().catch(() => null);
     if (!r.ok) {
