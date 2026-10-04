@@ -72,6 +72,27 @@ function toSession(json: Record<string, unknown>): Session {
   };
 }
 
+/** Why a request never got an HTTP response. Shows the host (public), never keys. */
+export function unreachableError(): ApiError {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return new ApiError('You appear to be offline. Check your internet connection and try again.', 0, 'network');
+  }
+  let host = SUPABASE_URL;
+  try {
+    host = new URL(SUPABASE_URL).host;
+  } catch {
+    /* keep raw */
+  }
+  return new ApiError(
+    `Can't reach the Supabase server (${host}). The project may be paused or deleted, or this site is configured with the wrong Supabase URL.`,
+    0,
+    'network',
+  );
+}
+
+/** Supabase answered, but rejected the site's public key itself. */
+const isApiKeyProblem = (msg: string) => /invalid api key|no api key|apikey/i.test(msg);
+
 async function authFetch(path: string, init: RequestInit) {
   if (!isConfigured) throw new ApiError('Supabase is not configured for this site yet.', 0, 'not_configured');
   let res: Response;
@@ -81,7 +102,7 @@ async function authFetch(path: string, init: RequestInit) {
       headers: { apikey: ANON_KEY, 'Content-Type': 'application/json', ...(init.headers || {}) },
     });
   } catch {
-    throw new ApiError('Network error — check your connection and try again.', 0, 'network');
+    throw unreachableError();
   }
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -110,9 +131,12 @@ export const auth = {
       emit('SIGNED_IN');
       return session!;
     } catch (e) {
-      if (e instanceof ApiError && (e.status === 400 || e.status === 401)) {
-        if (/confirm/i.test(e.message)) throw new ApiError('This email address has not been confirmed yet.', e.status, 'email_not_confirmed');
-        throw new ApiError('Incorrect email or password.', e.status, 'invalid_credentials');
+      if (e instanceof ApiError && (e.status === 400 || e.status === 401 || e.status === 422)) {
+        if (isApiKeyProblem(e.message)) throw new ApiError("Supabase rejected this site's public API key. Check the publishable/anon key configured for the site.", e.status, 'invalid_api_key');
+        if (/confirm/i.test(e.message) || e.code === 'email_not_confirmed') throw new ApiError('This email address has not been confirmed yet.', e.status, 'email_not_confirmed');
+        if (/email.*(disabled|not enabled)|provider.*disabled/i.test(e.message) || e.code === 'email_provider_disabled') throw new ApiError('Email/password sign-in is turned off in Supabase (Authentication → Sign In / Providers → Email).', e.status, 'email_provider_disabled');
+        if (e.code === 'invalid_credentials' || /invalid login credentials|invalid grant/i.test(e.message)) throw new ApiError('Incorrect email or password.', e.status, 'invalid_credentials');
+        throw new ApiError(e.message || 'Sign-in failed.', e.status, e.code);
       }
       if (e instanceof ApiError && e.status === 429) throw new ApiError('Too many attempts. Wait a minute and try again.', 429);
       throw e;
@@ -280,6 +304,7 @@ function friendly(status: number, body: Record<string, unknown>): ApiError {
   if (code === '42P01' || code === 'PGRST205') return new ApiError('Database setup is incomplete. Run supabase/setup.sql in the SQL editor.', status, code);
   if (code === '42703' || code === 'PGRST204') return new ApiError('A database column is missing. Run supabase/setup.sql again.', status, code);
   if (code === '23502') return new ApiError('A required field is missing.', status, code);
+  if (isApiKeyProblem(raw)) return new ApiError("Supabase rejected this site's public API key. Check the publishable/anon key configured for the site.", status, 'invalid_api_key');
   if (/JWT expired/i.test(raw)) return new ApiError('Your session has expired. Please sign in again.', 401, 'jwt_expired');
   return new ApiError(raw || `Request failed (${status})`, status, code);
 }
@@ -306,7 +331,7 @@ async function rest<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError('Network error — check your connection and try again.', 0, 'network');
+    throw unreachableError();
   }
   if (res.status === 401 && !retried && session) {
     if (await auth.refresh()) return rest<T>(method, table, query, body, true);
@@ -403,7 +428,7 @@ export const storage = {
       headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
       body: JSON.stringify({ prefixes: paths }),
     }).catch(() => {
-      throw new ApiError('Network error — could not delete the file.', 0, 'network');
+      throw unreachableError();
     });
     if (!res.ok) throw new ApiError('Could not delete the file from storage.', res.status);
   },
@@ -413,7 +438,7 @@ export const storage = {
       headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
       body: JSON.stringify({ prefix, limit: 500, offset: 0, sortBy: { column: 'created_at', order: 'desc' } }),
     }).catch(() => {
-      throw new ApiError('Network error — could not load media.', 0, 'network');
+      throw unreachableError();
     });
     if (!res.ok) throw new ApiError('Could not load the media library.', res.status);
     return res.json();
