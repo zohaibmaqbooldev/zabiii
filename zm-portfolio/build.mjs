@@ -39,13 +39,15 @@ function copyDir(from, to) {
 async function build() {
   const env = loadEnv();
   // Public values (safe to ship) used when the host has no env vars set.
-  const url = (env.VITE_SUPABASE_URL || 'https://fectstagqsocxqlecqbb.supabase.co').replace(/\/+$/, '');
-  const key = env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_aquZZ3NUce9CkFn1rgCRhA_fHrG44pX';
+  // Accepts Vite-style or Next.js-style names (both are public values).
+  const url = (env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || 'https://wkdcjfqpbzyvkrkgokos.supabase.co').trim().replace(/\/+$/, '');
+  const key = (env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_swFz_q6Yv-dioEsC5GIPdw_K7Mi1K01').trim();
+  if (/^sb_secret_/.test(key)) throw new Error('The Supabase key for the browser is a SECRET key. Use the publishable/anon key.');
   if (/service_role/.test(Buffer.from((key.split('.')[1] || ''), 'base64').toString())) {
     throw new Error('VITE_SUPABASE_ANON_KEY is a service_role key. Never ship that — use the anon/publishable key.');
   }
   const hostUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.URL || '';
-  const siteUrl = (env.SITE_URL || hostUrl).replace(/\/+$/, '');
+  const siteUrl = (env.SITE_URL || env.NEXT_PUBLIC_SITE_URL || hostUrl).replace(/\/+$/, '');
 
   fs.rmSync(dist, { recursive: true, force: true });
   const result = await esbuild.build({
@@ -96,6 +98,7 @@ async function build() {
   fs.writeFileSync(path.join(dist, '404.html'), html);
 
   const kb = (f) => (fs.statSync(path.join(root, f)).size / 1024).toFixed(1) + ' kB';
+  console.log(`Supabase: ${new URL(url).host}`);
   console.log(`built ${new Date().toLocaleTimeString()}  entry ${kb(entryJs)}${entryCss ? ', css ' + kb(entryCss[0]) : ''}`);
   if (!url || !key) console.warn('⚠  VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing in .env — the site will show its offline state.');
 }
