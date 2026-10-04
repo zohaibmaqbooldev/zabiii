@@ -7,8 +7,8 @@
 // • Protected against abuse: size limits, per-visitor and per-instance rate limits,
 //   short answers, and at most two Gemini attempts per message.
 
-const DEFAULT_SUPABASE_URL = 'https://fectstagqsocxqlecqbb.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_aquZZ3NUce9CkFn1rgCRhA_fHrG44pX'; // public key, safe to ship
+const DEFAULT_SUPABASE_URL = 'https://wkdcjfqpbzyvkrkgokos.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_swFz_q6Yv-dioEsC5GIPdw_K7Mi1K01'; // public key, safe to ship
 
 const MAX_BODY_BYTES = 12_000;
 const MAX_MESSAGES = 12; // conversation turns sent as context
@@ -43,8 +43,8 @@ const RULES = `Extra rules:
 // --------------------------------------------------------------- helpers ---
 
 const env = (k) => (typeof process !== 'undefined' && process.env && process.env[k]) || '';
-const supabaseUrl = () => (env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
-const supabaseKey = () => env('SUPABASE_ANON_KEY') || env('VITE_SUPABASE_ANON_KEY') || DEFAULT_SUPABASE_ANON_KEY;
+const supabaseUrl = () => (env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, '');
+const supabaseKey = () => (env('SUPABASE_ANON_KEY') || env('VITE_SUPABASE_ANON_KEY') || env('NEXT_PUBLIC_SUPABASE_ANON_KEY') || env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || DEFAULT_SUPABASE_ANON_KEY).trim();
 
 class HttpError extends Error {
   constructor(status, code, message) {
